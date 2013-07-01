@@ -6,14 +6,14 @@ First, get all the data conveniently below our working directory. It is .gitigno
 git clone https://github.com/arahuja/GADS4.git
 ```
 
-The smaller training files were experimented with while working on this, but just the 200k will be manipulated here for brevity.
+The smaller training files were experimented with while working on this, but just the 200k will be manipulated here for brevity. First, `add_loc.py` processes the location tree and adds fields to the csv data.
 
 ```bash
 ./add_loc.py GADS4/data/kaggle_salary/train_200k.csv data/trainall.csv
 ./add_loc.py GADS4/data/kaggle_salary/test.csv data/test.csv
 ```
 
-For simplicity, I'm omitting a further randomization of row order which would probably be nice to do. Let's just convert to vw format now.
+For simplicity, I'm omitting a further randomization of row order which would probably be nice to do. Let's just convert to vw format now, using `vw-ize.py`.
 
 ```bash
 ./vw-ize.py data/trainall.csv > data/trainall.vw
@@ -27,7 +27,9 @@ head -195000 data/trainall.vw > data/train.vw
 tail +195001 data/trainall.vw > data/valid.vw
 ```
 
-Models were trained and tested many many times. This is the current one, after having been determined based on a reasonable starting point and experimental iteration to get higher performance. It could be improved further, most likely, with a real systematic grid search for hyperparameters. Here it is trained and tested on the train and test sets split from the original 200k training file. (No part of this relies on having the true labels for the hold-out test set.) (Consult the [documentation for vw](https://github.com/JohnLangford/vowpal_wabbit/wiki) to understand what's happening.)
+Models were trained and tested many many times. The following will build and test the current best known one, which was determined based on a reasonable starting point and experimental iteration to get higher performance. It could be improved further, most likely, with a real systematic grid search for hyperparameters, different construction of features from beginning, or by using different options and so on.
+
+Here the model is trained and tested on the train and test sets split from the original 200k training file. No part of this relies on having the true labels for the hold-out test set. Consult the [documentation for vw](https://github.com/JohnLangford/vowpal_wabbit/wiki) to understand what's happening.
 
 ```bash
 # Train model:
@@ -39,7 +41,7 @@ vw -i models/model -t data/valid.vw -k -p models/predict
 echo `paste -d- <(cat models/predict | while read line; do echo "e($line)" | bc -l; done) <(cut -d' ' -f1 data/valid.vw | while read line; do echo "e($line)" | bc -l; done) | bc -l | tr -d '-' | paste -sd+ - | bc -l`/5000 | bc -l
 ```
 
-The final output is the MAE of 6,054 on the local test set. Not bad. We proceed to final predictions with a model trained on the whole data set. (The final evaluation will not work without the complete (labeled) test set, which is not available.)
+The final output is the cross-validation MAE of 6,054 (i.e., on the local test set). Not bad. We proceed to final predictions with a model trained on the whole data set. Note that the final evaluation will not work without the complete (labeled) test set, which is not provided.
 
 ```bash
 vw data/trainall.vw --passes 100 -k --cache_file models/c -f models/model -b 24 --l1 0.0000001
